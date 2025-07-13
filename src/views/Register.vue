@@ -1,27 +1,51 @@
 <template>
-  <div class="register-container">
-    <h2>Register</h2>
-    <form @submit.prevent="handleRegister">
+  <div class="container py-5">
+    <h2 class="mb-4">Register</h2>
+
+    <form @submit.prevent="handleRegister" class="w-50 mx-auto">
       <div class="mb-3">
-        <label>Username</label>
-        <input v-model="username" class="form-control" required />
+        <label for="username" class="form-label">Username</label>
+        <input
+          id="username"
+          v-model="username"
+          class="form-control"
+          required
+        />
       </div>
+
       <div class="mb-3">
-        <label>Password</label>
-        <input type="password" v-model="password" class="form-control" required />
+        <label for="password" class="form-label">Password</label>
+        <input
+          id="password"
+          v-model="password"
+          type="password"
+          class="form-control"
+          required
+        />
       </div>
+
       <div class="mb-3">
-        <label>Role</label>
+        <label for="role" class="form-label">Role</label>
         <select v-model="role" class="form-select">
           <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
       </div>
-      <button class="btn btn-success" type="submit">Register</button>
+
+      <button class="btn btn-primary" type="submit">Register</button>
     </form>
-    <p class="mt-3 text-success" v-if="success">Registration successful! You can now login.</p>
+
+    <div v-if="success" class="alert alert-success mt-4 text-center">
+      Registration successful! You can now <router-link to="/login">Login</router-link>.
+    </div>
   </div>
 </template>
+
+<script>
+export default {
+  name: 'RegisterPage'
+}
+</script>
 
 <script setup>
 import { ref } from 'vue'
@@ -32,13 +56,16 @@ const role = ref('user')
 const success = ref(false)
 
 function handleRegister() {
-  let users = JSON.parse(localStorage.getItem('users') || '[]')
+  // 获取已有用户
+  const users = JSON.parse(localStorage.getItem('users') || '[]')
 
+  // 检查重复
   if (users.some(u => u.username === username.value)) {
-    alert('Username already exists')
+    alert('❌ Username already exists!')
     return
   }
 
+  // 保存新用户
   users.push({
     username: username.value,
     password: password.value,
@@ -47,15 +74,10 @@ function handleRegister() {
 
   localStorage.setItem('users', JSON.stringify(users))
   success.value = true
+
+  // 重置输入
   username.value = ''
   password.value = ''
   role.value = 'user'
 }
 </script>
-
-<style scoped>
-.register-container {
-  max-width: 400px;
-  margin: 0 auto;
-}
-</style>
