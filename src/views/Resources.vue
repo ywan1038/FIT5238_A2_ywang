@@ -35,25 +35,25 @@ const resources = [
   {
     title: 'How to Handle Academic Stress',
     description: 'Tips for international students facing academic pressure.',
-    url: 'https://example.com/stress',
+    url: 'https://www.youtube.com/watch?v=rgQvqi6aYD8',
     lang: 'en'
   },
   {
     title: '如何应对学业压力',
     description: '面向中国留学生的心理调适建议。',
-    url: 'https://example.com/stress-cn',
+    url: 'https://www.youtube.com/watch?v=38y_1EWIE9I',
     lang: 'zh'
   },
   {
     title: 'Finding Balance in Student Life',
     description: 'A short video on self-care.',
-    url: 'https://example.com/selfcare',
+    url: 'https://www.youtube.com/watch?v=IwZlFG-3Y4o',
     lang: 'en'
   },
   {
     title: '学生生活与心理健康视频',
     description: '适合留学生的视频资源。',
-    url: 'https://example.com/selfcare-cn',
+    url: 'https://www.youtube.com/watch?v=j0OFmTf5h3w',
     lang: 'zh'
   }
 ]
