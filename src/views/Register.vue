@@ -1,83 +1,47 @@
 <template>
-  <div class="container py-5">
+  <div class="container py-5" style="max-width:560px">
     <h2 class="mb-4">Register</h2>
 
-    <form @submit.prevent="handleRegister" class="w-50 mx-auto">
+    <form @submit.prevent="handleRegister">
       <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
-        <input
-          id="username"
-          v-model="username"
-          class="form-control"
-          required
-        />
+        <label class="form-label">Email</label>
+        <input v-model="email" type="email" class="form-control" required />
       </div>
 
       <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input
-          id="password"
-          v-model="password"
-          type="password"
-          class="form-control"
-          required
-        />
+        <label class="form-label">Password</label>
+        <input v-model="password" type="password" class="form-control" required />
       </div>
 
-      <div class="mb-3">
-        <label for="role" class="form-label">Role</label>
-        <select v-model="role" class="form-select">
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>
-
-      <button class="btn btn-primary" type="submit">Register</button>
+      <button class="btn btn-primary w-100" type="submit">Create Account</button>
     </form>
 
     <div v-if="success" class="alert alert-success mt-4 text-center">
       Registration successful! You can now <router-link to="/login">Login</router-link>.
     </div>
+    <div v-if="error" class="alert alert-danger mt-3 text-center">{{ error }}</div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'RegisterPage'
-}
-</script>
-
 <script setup>
 import { ref } from 'vue'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '@/services/firebase'
 
-const username = ref('')
+const email = ref('')
 const password = ref('')
-const role = ref('user')
 const success = ref(false)
+const error = ref('')
 
-function handleRegister() {
-  // 获取已有用户
-  const users = JSON.parse(localStorage.getItem('users') || '[]')
-
-  // 检查重复
-  if (users.some(u => u.username === username.value)) {
-    alert('❌ Username already exists!')
-    return
+async function handleRegister() {
+  error.value = ''
+  try {
+    await createUserWithEmailAndPassword(auth, email.value, password.value)
+    success.value = true
+    email.value = ''
+    password.value = ''
+  } catch (e) {
+    error.value = e.message
   }
-
-  // 保存新用户
-  users.push({
-    username: username.value,
-    password: password.value,
-    role: role.value
-  })
-
-  localStorage.setItem('users', JSON.stringify(users))
-  success.value = true
-
-  // 重置输入
-  username.value = ''
-  password.value = ''
-  role.value = 'user'
 }
 </script>

@@ -5,6 +5,10 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
+import { useUserStore } from '@/store/user'   // +++
 
-createApp(App).use(router).use(store).mount('#app')
+const app = createApp(App).use(router).use(store)
+const userStore = useUserStore()
+userStore.bindAuthListener()                  // +++ 监听 Firebase 登录态
 
+app.mount('#app')
