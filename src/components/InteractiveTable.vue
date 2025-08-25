@@ -1,55 +1,112 @@
 <template>
   <div>
-    <!-- 全局搜索 -->
+    <!-- 工具栏：导出 + 全局搜索 -->
     <div class="mb-3 d-flex gap-2 align-items-center">
-      <input v-model="globalQuery" class="form-control" placeholder="Search all..." />
+      <button
+        class="btn btn-outline-secondary"
+        @click="onExport"
+        aria-label="Export current table as CSV"
+      >
+        Export CSV
+      </button>
+      <input
+        v-model="globalQuery"
+        class="form-control"
+        placeholder="Search all..."
+        aria-label="Global search"
+      />
       <span class="text-muted small">Rows: {{ filteredRows.length }}</span>
     </div>
 
     <!-- 按列搜索 -->
     <div class="row g-2 mb-2">
       <div class="col" v-for="col in columns" :key="col.key">
-        <input v-model="columnFilters[col.key]" class="form-control" :placeholder="`Search ${col.label}`" />
+        <label class="form-label visually-hidden" :for="`col-${col.key}`">
+          Search {{ col.label || col.key }}
+        </label>
+        <input
+          :id="`col-${col.key}`"
+          v-model="columnFilters[col.key]"
+          class="form-control"
+          :placeholder="`Search ${col.label || col.key}`"
+        />
       </div>
     </div>
 
+    <!-- 表格 -->
     <div class="table-responsive">
       <table class="table table-hover align-middle">
         <thead>
           <tr>
-            <th v-for="col in columns" :key="col.key" @click="toggleSort(col.key)" style="cursor:pointer; white-space:nowrap">
-              {{ col.label }}
-              <i v-if="sort.key===col.key && sort.dir==='asc'" class="bi bi-caret-up-fill ms-1"></i>
-              <i v-else-if="sort.key===col.key && sort.dir==='desc'" class="bi bi-caret-down-fill ms-1"></i>
+            <th
+              v-for="col in columns"
+              :key="col.key"
+              @click="toggleSort(col.key)"
+              scope="col"
+              :aria-sort="sort.key === col.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'"
+              tabindex="0"
+              @keydown.enter="toggleSort(col.key)"
+              @keydown.space.prevent="toggleSort(col.key)"
+              style="cursor: pointer"
+            >
+              <span class="d-inline-flex align-items-center gap-1">
+                {{ col.label || col.key }}
+                <span v-if="sort.key === col.key">
+                  <span v-if="sort.dir === 'asc'">▲</span>
+                  <span v-else>▼</span>
+                </span>
+              </span>
             </th>
           </tr>
         </thead>
+
         <tbody>
-          <tr v-for="row in pagedRows" :key="row.__id">
-            <td v-for="col in columns" :key="col.key">{{ row[col.key] }}</td>
+          <tr v-for="(row, i) in pagedRows" :key="row.id || i">
+            <td v-for="col in columns" :key="col.key">
+              <span>{{ row[col.key] }}</span>
+            </td>
           </tr>
-          <tr v-if="pagedRows.length===0"><td :colspan="columns.length" class="text-center text-muted">No data</td></tr>
+          <tr v-if="pagedRows.length === 0">
+            <td :colspan="columns.length" class="text-center text-muted">No data</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
     <!-- 分页 -->
-    <div class="d-flex justify-content-between align-items-center">
-      <div class="text-muted small">Page {{ page }} / {{ totalPages }}</div>
-      <div class="btn-group">
-        <button class="btn btn-outline-secondary" :disabled="page===1" @click="page--">Prev</button>
-        <button class="btn btn-outline-secondary" :disabled="page===totalPages" @click="page++">Next</button>
+    <nav class="d-flex justify-content-between align-items-center" aria-label="Table pagination">
+      <div class="small text-muted">
+        Page {{ page }} / {{ totalPages }}
       </div>
-    </div>
+      <ul class="pagination mb-0">
+        <li :class="['page-item', { disabled: page === 1 }]">
+          <button class="page-link" @click="go(1)" aria-label="First">«</button>
+        </li>
+        <li :class="['page-item', { disabled: page === 1 }]">
+          <button class="page-link" @click="go(page - 1)" aria-label="Previous">‹</button>
+        </li>
+        <li class="page-item disabled">
+          <span class="page-link">{{ page }}</span>
+        </li>
+        <li :class="['page-item', { disabled: page === totalPages }]">
+          <button class="page-link" @click="go(page + 1)" aria-label="Next">›</button>
+        </li>
+        <li :class="['page-item', { disabled: page === totalPages }]">
+          <button class="page-link" @click="go(totalPages)" aria-label="Last">»</button>
+        </li>
+      </ul>
+    </nav>
   </div>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watchEffect } from 'vue'
+import { toCSV, downloadCSV } from '@/utils/export'
 
+// props：columns=[{key,label}], rows=[{...}], pageSize=10
 const props = defineProps({
-  columns: { type: Array, required: true }, // [{ key:'name', label:'Name' }, ...]
-  rows: { type: Array, required: true },    // [{ name:'', ... }]
+  columns: { type: Array, required: true },
+  rows: { type: Array, required: true },
   pageSize: { type: Number, default: 10 }
 })
 
@@ -60,42 +117,43 @@ const columnFilters = reactive({})
 
 watchEffect(() => {
   // 初始化列过滤字段
-  props.columns.forEach(c => { if (!(c.key in columnFilters)) columnFilters[c.key] = '' })
+  props.columns.forEach(c => {
+    if (!(c.key in columnFilters)) columnFilters[c.key] = ''
+  })
 })
 
-function toggleSort(key) {
-  if (sort.key !== key) { sort.key = key; sort.dir = 'asc' }
-  else { sort.dir = (sort.dir === 'asc' ? 'desc' : 'asc') }
-  page.value = 1
+function normalize(v) {
+  return String(v == null ? '' : v).toLowerCase().trim()
 }
 
 const filteredRows = computed(() => {
-  const q = globalQuery.value.trim().toLowerCase()
-  return props.rows.filter((r) => {
-    // 全局过滤
-    const globalOk = q === '' || Object.values(r).some(v => String(v ?? '').toLowerCase().includes(q))
-    if (!globalOk) return false
-    // 按列过滤
-    for (const k of Object.keys(columnFilters)) {
-      const cq = (columnFilters[k] || '').trim().toLowerCase()
-      if (cq && !String(r[k] ?? '').toLowerCase().includes(cq)) return false
+  const gq = normalize(globalQuery.value)
+  return props.rows.filter(r => {
+    // 全局搜索
+    const okGlobal = !gq || Object.values(r).some(v => normalize(v).includes(gq))
+    if (!okGlobal) return false
+    // 按列搜索
+    for (const col of props.columns) {
+      const q = normalize(columnFilters[col.key])
+      if (q && !normalize(r[col.key]).includes(q)) return false
     }
     return true
   })
 })
 
 const sortedRows = computed(() => {
-  const arr = [...filteredRows.value]
-  if (!sort.key) return arr
-  return arr.sort((a, b) => {
-    const va = a[sort.key]; const vb = b[sort.key]
+  const data = [...filteredRows.value]
+  if (!sort.key) return data
+  data.sort((a, b) => {
+    const va = a[sort.key], vb = b[sort.key]
     if (va == null && vb == null) return 0
-    if (va == null) return sort.dir === 'asc' ? -1 : 1
-    if (vb == null) return sort.dir === 'asc' ? 1 : -1
-    if (va < vb) return sort.dir === 'asc' ? -1 : 1
+    if (va == null) return -1
+    if (vb == null) return 1
     if (va > vb) return sort.dir === 'asc' ? 1 : -1
+    if (va < vb) return sort.dir === 'asc' ? -1 : 1
     return 0
   })
+  return data
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(sortedRows.value.length / props.pageSize)))
@@ -104,13 +162,23 @@ const pagedRows = computed(() => {
   return sortedRows.value.slice(start, start + props.pageSize)
 })
 
-// Watch totalPages and adjust page if needed
 watchEffect(() => {
-  if (page.value > totalPages.value) {
-    page.value = totalPages.value
-  }
+  if (page.value > totalPages.value) page.value = totalPages.value
 })
 
-// 给每行一个稳定 key
-// 已移除未使用的 _rows
+function toggleSort(key) {
+  if (sort.key !== key) { sort.key = key; sort.dir = 'asc' }
+  else { sort.dir = (sort.dir === 'asc' ? 'desc' : 'asc') }
+}
+
+function go(p) {
+  const n = Math.min(Math.max(1, p), totalPages.value)
+  page.value = n
+}
+
+/** 导出当前分页数据为 CSV */
+function onExport() {
+  const csv = toCSV(pagedRows.value, props.columns)
+  downloadCSV(csv, 'table_export.csv')
+}
 </script>
